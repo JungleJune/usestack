@@ -1,5 +1,11 @@
-import { supabase } from "@/lib/supabase";
 import { GoogleGenAI } from "@google/genai";
+import { boundedString } from "@/lib/security.mjs";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/server/rate-limit";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { isProductVisible } from "@/lib/products.mjs";
 
 const groundingTool = {
   googleSearch: {},
@@ -9,13 +15,13 @@ const config = {
 };
 
 async function getAllTools(){
-   const { data, error } = await supabase
+   const { data, error } = await getSupabaseAdmin()
     .from("products")
-    .select("*");
+    .select("id, name, slug, tagline, description, website_url, logo_url, tool_thumbnail_url");
 
   if (error) throw error;
 
-  return data;
+  return (data || []).filter(isProductVisible);
 }
 async function getRelevantTools(query, toolList){
     const prompt = `
@@ -112,15 +118,20 @@ function cleanJsonString(str) {
 }
 
 export async function POST(request) {
+  const rateLimit = checkRateLimit(request, {
+    namespace: "ai-search",
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
   if (!process.env.GEMINI_API_KEY) {
     return Response.json({ error: "Server configuration error" }, { status: 500 });
   }
 
   try {
-    const {decodedQuery:query} = await request.json();
-    if (!query) {
-      return Response.json({ error: "Query is required" }, { status: 400 });
-    }
+    const body = await request.json();
+    const query = boundedString(body.decodedQuery, 500, { required: true });
     const tools = await getAllTools();
      const toolList = tools
     .map(
@@ -132,7 +143,10 @@ export async function POST(request) {
   
     // Check if workflow was generated
     if (!workflowData?.workflow) {
-      return Response.json({ error: "Failed to generate workflow", workflowId: null }, { status: 200 });
+      return Response.json(
+        { error: "Failed to generate workflow", workflowId: null },
+        { status: 502 }
+      );
     }
     // Step 4: Enrich workflow steps with full tool data
     const workflow = workflowData.workflow;
@@ -177,7 +191,7 @@ export async function POST(request) {
       tools: allTools,
     };
 
-    const { data: savedWorkflow, error: insertError } = await supabase
+    const { data: savedWorkflow, error: insertError } = await getSupabaseAdmin()
       .from("workflows")
       .insert({
         query: query,
@@ -200,9 +214,13 @@ export async function POST(request) {
       saved: true,
     });
   } catch (err) {
+    console.error("AI search route error:", err);
+    const isValidationError =
+      err instanceof SyntaxError ||
+      /required|characters/i.test(err?.message || "");
     return Response.json(
-      { error: "AI search failed", details: err.message },
-      { status: 500 }
+      { error: isValidationError ? "A valid search query is required" : "AI search failed" },
+      { status: isValidationError ? 400 : 500 }
     );
   }
 }

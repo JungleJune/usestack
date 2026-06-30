@@ -1,148 +1,61 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Settings, LogOut, User, Loader2, Search } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Plus, Search } from "lucide-react";
+import BrandLogo from "@/components/brand-logo";
+
+const navItems = [
+  { href: "/explore", label: "Discover" },
+  { href: "/stack", label: "Stacks" },
+  { href: "/blogs", label: "Updates" },
+  { href: "/categories", label: "Categories" },
+];
 
 export default function Header() {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-
-  const handleLogout = async () => {
-    setShowProfileDropdown(false);
-    await signOut({ callbackUrl: "/" });
-  };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-3 items-center h-16">
-          {/* Logo - Left */}
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <img src="/logo.png" alt="UseStack.ai" className="h-8 object-contain" />
-            </Link>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-[#e3e3df] bg-white/90 backdrop-blur-xl">
+      <div className="mx-auto grid h-16 max-w-[1440px] grid-cols-[auto_1fr_auto] items-center gap-5 px-5 sm:px-8 lg:px-12">
+        <Link
+          href="/"
+          className="inline-flex items-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-4"
+          aria-label="UseStack home"
+        >
+          <BrandLogo />
+        </Link>
 
-          {/* Navigation - Center */}
-          <nav className="hidden md:flex items-center justify-center space-x-8">
+        <nav className="hidden items-center justify-center gap-7 md:flex">
+          {navItems.map((item) => (
             <Link
-              href="/"
-              className="text-gray-600 hover:text-gray-900 font-medium text-sm"
+              key={item.href}
+              href={item.href}
+              className="text-[13px] font-medium text-[#5f5f5a] transition hover:text-black focus-visible:outline-none focus-visible:text-black"
             >
-              Home
+              {item.label}
             </Link>
+          ))}
+        </nav>
 
-            <Link
-              href="/explore"
-              className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-            >
-              Explore
-            </Link>
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={() => router.push("/explore")}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#555550] transition hover:bg-[#f1f1ee] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+            type="button"
+            aria-label="Search AI tools"
+            title="Search"
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </button>
 
-            <Link
-              href="/submit-tool"
-              className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-            >
-              Submit Tool
-            </Link>
-            <Link
-              href="/blogs"
-              className="text-gray-600 hover:text-gray-900 font-medium text-sm"
-            >
-              Blogs
-            </Link>
-          </nav>
-
-          {/* Right Actions */}
-          <div className="flex items-center justify-end space-x-4">
-            {/* Search Icon */}
-            <button 
-              onClick={() => router.push('/explore')}
-              className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-          {/*
-            {status === "loading" ? (
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-             ) : session ? (
-              // User is logged in - show profile image or initial with dropdown
-              <div
-                className="relative"
-                onMouseEnter={() => setShowProfileDropdown(true)}
-                onMouseLeave={() => setShowProfileDropdown(false)}
-              >
-                <button className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-gray-200 transition-all">
-                  {session.user?.image ? (
-                    <img 
-                      src={session.user.image} 
-                      alt={session.user?.name || "User"} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-blue-600 flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">
-                        {session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase() || "U"}
-                      </span>
-                    </div>
-                  )}
-                </button>
-
-                {showProfileDropdown && (
-                  <div className="absolute right-0 top-full w-56 bg-white rounded-md shadow-lg border border-gray-200 py-2 z-50">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {session.user?.name || "User"}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {session.user?.email}
-                      </p>
-                    </div>
-                    
-                    {session.user?.role === "admin" && (
-                      <Link
-                        href="/admin"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // User is not logged in - show Login button
-              <Link href="/login">
-                <Button variant="outline" size="sm" className="rounded-full border-gray-300 text-sm">
-                  Login
-                </Button>
-              </Link>
-            )}
-              */}
-          </div>
+          <Link
+            href="/submit-tool"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-[#171717] px-4 text-[13px] font-medium text-white transition hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Submit tool</span>
+          </Link>
         </div>
       </div>
     </header>

@@ -9,6 +9,7 @@ import RetryButton from "./retry-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { isProductVisible } from "@/lib/products.mjs";
 
 const relatedStacks = [
   {
@@ -109,7 +110,7 @@ export default async function StackDetailPage({ params }) {
 
   const stackProducts = (stackData.product_stacks || [])
     .map((ps) => ps.product)
-    .filter(Boolean);
+    .filter((product) => product && isProductVisible(product));
 
 
   return (

@@ -10,7 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 
 
 

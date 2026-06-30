@@ -85,6 +85,7 @@ ToastDescription.displayName = ToastPrimitives.Description.displayName
 const ToastActionElement = React.forwardRef(({ className, ...props }, ref) => (
   <ToastAction ref={ref} className={cn("", className)} {...props} />
 ))
+ToastActionElement.displayName = "ToastActionElement"
 
 export {
   ToastProvider,

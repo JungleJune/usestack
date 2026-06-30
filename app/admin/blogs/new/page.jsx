@@ -3,13 +3,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Save, Upload, X, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { toast } from "@/hooks/use-toast";
 import RichTextEditor from "@/components/rich-text-editor";
 
 const CATEGORIES = ["Tool", "Stack", "News"];
 
-export default function page() {
+export default function NewBlogPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
 
@@ -32,6 +32,8 @@ export default function page() {
   // Fetch tags
   useEffect(() => {
     fetchTags();
+    // This initial lookup is intentionally performed once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchTags() {

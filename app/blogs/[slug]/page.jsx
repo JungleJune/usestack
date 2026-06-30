@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import DOMPurify from "dompurify";
 import {
   Calendar,
   Eye,
@@ -21,11 +22,19 @@ export default function BlogDetailPage() {
 
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
+  const sanitizedContent = useMemo(() => {
+    if (typeof window === "undefined" || !blog?.content) return "";
+    return DOMPurify.sanitize(blog.content, {
+      USE_PROFILES: { html: true },
+    });
+  }, [blog?.content]);
 
   useEffect(() => {
     if (slug) {
       fetchBlog();
     }
+    // The route slug is the only value that should trigger a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   async function fetchBlog() {
@@ -200,7 +209,7 @@ export default function BlogDetailPage() {
               {isHTML(blog.content) ? (
                 <div
                   className="prose prose-gray prose-headings:font-bold prose-a:text-blue-600 prose-blockquote:border-l-blue-400 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: blog.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedContent }}
                 />
               ) : (
                 <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">

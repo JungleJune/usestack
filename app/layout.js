@@ -18,7 +18,7 @@ export const metadata = {
   creator: "UseStack.ai",
   publisher: "UseStack.ai",
   icons: {
-    icon: "/favicon.png",
+    icon: "/favicon.svg",
     shortcut: "/favicon.png",
     apple: "/favicon.png",
   },
@@ -39,7 +39,7 @@ export const metadata = {
     siteName: "UseStack.ai",
     images: [
       {
-        url: "/logo.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "UseStack.ai",
@@ -54,7 +54,7 @@ export const metadata = {
     description:
       "Find, compare, and choose from thousands of AI-powered tools and agents to supercharge your workflow and boost productivity.",
     creator: "@usestackai",
-    images: ["/logo.png"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,

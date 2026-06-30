@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/header";
 import { 
   FileText, 
-  Image, 
+  Image as ImageIcon,
   Code, 
   Megaphone, 
   Zap, 
@@ -20,12 +20,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { isProductIdVisible } from "@/lib/products.mjs";
 
 // Icon mapping for categories
 const getCategoryIcon = (categoryName) => {
   const iconMap = {
     "Text Generation": <FileText className="w-5 h-5" />,
-    "Image Generation": <Image className="w-5 h-5" />,
+    "Image Generation": <ImageIcon className="w-5 h-5" />,
     "Developer Tools": <Code className="w-5 h-5" />,
     "Marketing": <Megaphone className="w-5 h-5" />,
     "Productivity": <Zap className="w-5 h-5" />,
@@ -53,7 +54,9 @@ export default function CategoriesPage() {
           .from("categories")
           .select("id, name, slug")
           .order("name", { ascending: true }),
-        supabase.from("product_category_jnc").select("category_id"),
+        supabase
+          .from("product_category_jnc")
+          .select("product_id, category_id"),
       ]);
 
       if (!categoriesRes.error && categoriesRes.data) {
@@ -63,6 +66,7 @@ export default function CategoriesPage() {
       if (!productCategoriesRes.error && productCategoriesRes.data) {
         const counts = {};
         productCategoriesRes.data.forEach((row) => {
+          if (!isProductIdVisible(row.product_id)) return;
           const id = row.category_id;
           counts[id] = (counts[id] || 0) + 1;
         });

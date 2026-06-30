@@ -1,27 +1,46 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
+import {
+  boundedString,
+  isValidEmail,
+  isValidPassword,
+  normalizeEmail,
+} from "@/lib/security.mjs";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/server/rate-limit";
 
 export async function POST(request) {
+  const rateLimit = checkRateLimit(request, {
+    namespace: "register",
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
   try {
-    const { name, email, password } = await request.json();
+    const body = await request.json();
+    const name = boundedString(body.name, 100, { required: true });
+    const email = normalizeEmail(body.email);
+    const password = body.password;
 
-    // Validate input
-    if (!name || !email || !password) {
+    if (!isValidEmail(email)) {
       return NextResponse.json(
-        { error: "Name, email, and password are required" },
+        { error: "A valid email address is required" },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
+    if (!isValidPassword(password)) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Password must be between 10 and 128 characters" },
         { status: 400 }
       );
     }
 
-    // Check if user already exists
+    const supabase = getSupabaseAdmin();
     const { data: existingUser } = await supabase
       .from("users")
       .select("id")
@@ -35,9 +54,7 @@ export async function POST(request) {
       );
     }
 
-    // Hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user in the database
     const { data: newUser, error } = await supabase
@@ -62,7 +79,6 @@ export async function POST(request) {
       );
     }
 
-    // Return success (don't return the password)
     return NextResponse.json(
       {
         message: "Account created successfully",
@@ -74,10 +90,9 @@ export async function POST(request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error("Registration error:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Unable to create account" },
       { status: 500 }
     );
   }

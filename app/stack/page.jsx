@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
+import { isProductVisible } from "@/lib/products.mjs";
 
 export default function Page() {
   const [stacks, setStacks] = useState([]);
@@ -89,7 +90,7 @@ export default function Page() {
               filteredStacks.map((stack) => {
                 const products = (stack.product_stacks || [])
                   .map((ps) => ps.product)
-                  .filter(Boolean);
+                  .filter((product) => product && isProductVisible(product));
                 const displayProducts = products.slice(0, 4);
                 const extraCount = products.length - 4;
                 return (

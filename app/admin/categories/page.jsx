@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { toast } from "@/hooks/use-toast";
 export default function Page() {
   const [categories, setCategories] = useState([]);

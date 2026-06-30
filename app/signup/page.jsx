@@ -54,10 +54,10 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 10) {
       toast({
         title: "Error",
-        description: "Password must be at least 6 characters",
+        description: "Password must be at least 10 characters",
         variant: "destructive",
       });
       return;
@@ -203,6 +203,8 @@ export default function SignupPage() {
                     placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    minLength={10}
+                    maxLength={128}
                     className="pl-10 pr-10"
                     disabled={loading}
                   />
@@ -230,6 +232,8 @@ export default function SignupPage() {
                     placeholder="Confirm your password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    minLength={10}
+                    maxLength={128}
                     className="pl-10 pr-10"
                     disabled={loading}
                   />
