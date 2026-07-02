@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/admin-layout";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ export default function AdminToolsListPage() {
 
   useEffect(() => {
     fetchTools();
+    // This initial admin query is intentionally performed once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchTools = async () => {

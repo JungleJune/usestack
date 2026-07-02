@@ -29,7 +29,7 @@ import {
   Loader2,
   Upload
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { useToast } from "@/hooks/use-toast";
 import Fuse from "fuse.js";
 
@@ -107,6 +107,8 @@ useEffect(() => {
 
   useEffect(() => {
     fetchInitialData();
+    // This initial lookup is intentionally performed once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchInitialData = async () => {

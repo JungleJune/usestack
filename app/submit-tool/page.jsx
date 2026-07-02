@@ -31,7 +31,7 @@ import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import Fuse from "fuse.js";
 import Header from "@/components/header";
-export default function page() {
+export default function SubmitToolPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -109,6 +109,8 @@ export default function page() {
 
   useEffect(() => {
     fetchInitialData();
+    // This initial lookup is intentionally performed once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchInitialData = async () => {

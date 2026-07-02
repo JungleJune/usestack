@@ -3,14 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Filter, Search, X } from "lucide-react";
+import { ChevronDown, Filter, Search, X } from "lucide-react";
 // categories and tags are now fetched from Supabase
 import FeaturedProducts from "@/components/featured-products";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { isProductIdVisible } from "@/lib/products.mjs";
 
 export default function ExplorePage() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function ExplorePage() {
     searchParams.get("search") || ""
   );
   const [filteredCount, setFilteredCount] = useState(0);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const handleCategoryChange = (categoryId, checked) => {
     if (checked) {
@@ -115,7 +116,9 @@ export default function ExplorePage() {
               .from("categories")
               .select("id, name, slug")
               .order("name", { ascending: true }),
-            supabase.from("product_category_jnc").select("category_id"),
+            supabase
+              .from("product_category_jnc")
+              .select("product_id, category_id"),
             supabase
               .from("tags")
               .select("name")
@@ -131,6 +134,7 @@ export default function ExplorePage() {
         if (!productCategoriesRes.error && productCategoriesRes.data) {
           const counts = {};
           productCategoriesRes.data.forEach((row) => {
+            if (!isProductIdVisible(row.product_id)) return;
             counts[row.category_id] = (counts[row.category_id] || 0) + 1;
           });
           setCategoryCounts(counts);
@@ -178,136 +182,164 @@ export default function ExplorePage() {
   }, [availableTags, selectedTags]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f5f5f2] text-[#141414]">
       <Header />
 
-      {/* Page Header */}
-      <div className="border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Explore AI Tools</h1>
-          <p className="text-gray-500 text-lg mb-6">
-            Discover AI tools and agents by category
+      <div className="border-b border-[#e1e1dc] bg-white">
+        <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
+          <p className="text-[13px] font-medium text-[#2563eb]">Directory</p>
+          <h1 className="mt-3 max-w-3xl text-[42px] font-medium leading-tight tracking-normal sm:text-[58px]">
+            Explore AI tools
+          </h1>
+          <p className="mb-8 mt-4 max-w-2xl text-[17px] leading-7 text-[#6b6b65]">
+            Search the full index by product, use case, category, or tag.
           </p>
-          
-          {/* Search Bar */}
-          <div className="flex gap-3 max-w-xl mx-auto">
+
+          <div className="flex max-w-3xl gap-2 rounded-full border border-[#cfcfca] bg-white p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.05)] focus-within:border-[#85857f]">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#888882]" />
               <Input
-                placeholder="Search for AI tools..."
-                className="pl-12 pr-12 py-3 text-base border border-gray-200 rounded-full bg-gray-50 focus:bg-white"
+                placeholder="Search tools, tasks, or workflows"
+                className="h-11 border-0 bg-transparent pl-11 pr-11 text-[15px] shadow-none focus-visible:ring-0"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
               />
               {searchQuery && (
                 <button
                   onClick={clearSearch}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8d8d87] transition hover:text-black"
                   type="button"
+                  aria-label="Clear search"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <Button className="rounded-full px-6" onClick={handleSearch}>
+            <Button
+              className="h-11 rounded-full bg-[#171717] px-5 text-[13px] hover:bg-[#333333]"
+              onClick={handleSearch}
+            >
               Search
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Filters */}
-          <div className="lg:w-64 shrink-0">
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-24">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">Filters</h3>
-                </div>
+      <div className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-12">
+        <div className="flex flex-col gap-10 lg:flex-row">
+          <div className="shrink-0 lg:w-64">
+            <div className="sticky top-24 border-t border-[#cfcfca] pt-5">
+              <div className="mb-5 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileFilters((current) => !current)}
+                  className="flex items-center gap-2 lg:pointer-events-none"
+                  aria-expanded={showMobileFilters}
+                >
+                  <Filter className="h-4 w-4 text-[#666661]" />
+                  <h3 className="text-[14px] font-medium">Filters</h3>
+                  <span className="text-[11px] text-[#9a9a94] lg:hidden">
+                    {selectedCategories.length + selectedTags.length || ""}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-[#8d8d87] transition lg:hidden ${
+                      showMobileFilters ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
                 {(selectedCategories.length > 0 ||
                   selectedTags.length > 0 ||
                   searchQuery.trim()) && (
-                  <X
-                    className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  <button
                     onClick={removeAllFilters}
-                  />
+                    type="button"
+                    aria-label="Clear all filters"
+                    className="text-[#8c8c86] transition hover:text-black"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </div>
 
-              {/* Categories Filter */}
-              <div className="mb-5 pb-5 border-b border-gray-100">
-                <h4 className="font-medium text-gray-700 mb-3 text-sm">Categories</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {sortedCategories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex items-center justify-between py-1"
-                    >
-                      <div className="flex items-center space-x-2">
+              <div className={`${showMobileFilters ? "block" : "hidden"} lg:block`}>
+                <div className="mb-5 border-b border-[#deded9] pb-5">
+                  <h4 className="mb-3 text-[12px] font-medium text-[#777772]">
+                    Categories
+                  </h4>
+                  <div className="max-h-52 space-y-2 overflow-y-auto pr-2">
+                    {sortedCategories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-center justify-between py-0.5"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id={category.slug}
+                            checked={selectedCategories.includes(category.slug)}
+                            onCheckedChange={(checked) =>
+                              handleCategoryChange(category.slug, checked)
+                            }
+                          />
+                          <label
+                            htmlFor={category.slug}
+                            className="cursor-pointer text-[13px] text-[#595954]"
+                          >
+                            {category.name}
+                          </label>
+                        </div>
+                        <span className="text-[11px] text-[#9b9b95]">
+                          {categoryCounts[category.id] || 0}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-5">
+                  <h4 className="mb-3 text-[12px] font-medium text-[#777772]">
+                    Tags
+                  </h4>
+                  <div className="max-h-52 space-y-2 overflow-y-auto pr-2">
+                    {sortedTags.map((tag) => (
+                      <div key={tag} className="flex items-center space-x-2 py-0.5">
                         <Checkbox
-                          id={category.slug}
-                          checked={selectedCategories.includes(category.slug)}
+                          id={`tag-${tag}`}
+                          checked={selectedTags.includes(tag)}
                           onCheckedChange={(checked) =>
-                            handleCategoryChange(category.slug, checked)
+                            handleTagChange(tag, checked)
                           }
                         />
-                        <label htmlFor={category.slug} className="text-sm text-gray-600 cursor-pointer">
-                          {category.name}
+                        <label
+                          htmlFor={`tag-${tag}`}
+                          className="cursor-pointer text-[13px] text-[#595954]"
+                        >
+                          #{tag}
                         </label>
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {categoryCounts[category.id] || 0}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Tags Filter */}
-              <div className="mb-5">
-                <h4 className="font-medium text-gray-700 mb-3 text-sm">Tags</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {sortedTags.map((tag) => (
-                    <div key={tag} className="flex items-center space-x-2 py-1">
-                      <Checkbox
-                        id={`tag-${tag}`}
-                        checked={selectedTags.includes(tag)}
-                        onCheckedChange={(checked) =>
-                          handleTagChange(tag, checked)
-                        }
-                      />
-                      <label htmlFor={`tag-${tag}`} className="text-sm text-gray-600 cursor-pointer">
-                        #{tag}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                {(selectedCategories.length > 0 || selectedTags.length > 0) && (
+                  <div className="border-t border-[#deded9] pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={removeAllFilters}
+                      className="w-full rounded-full border-[#cfcfca] bg-transparent text-[12px]"
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {/* Remove Filters Button */}
-              {(selectedCategories.length > 0 || selectedTags.length > 0) && (
-                <div className="pt-4 border-t border-gray-100">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={removeAllFilters}
-                    className="w-full text-sm"
-                  >
-                    Clear All Filters
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-gray-500">
+            <div className="mb-6 flex items-center justify-between border-t border-[#cfcfca] pt-5">
+              <p className="text-[13px] text-[#6c6c66]">
                 {filteredCount === 0
                   ? "No tools found"
                   : `Showing ${filteredCount} ${filteredCount === 1 ? "tool" : "tools"}`}
@@ -315,7 +347,7 @@ export default function ExplorePage() {
               {(selectedCategories.length > 0 ||
                 selectedTags.length > 0 ||
                 searchQuery.trim()) && (
-                <p className="text-xs text-gray-400">
+                <p className="text-[11px] text-[#969690]">
                   {selectedCategories.length > 0 && `${selectedCategories.length} categories`}
                   {selectedCategories.length > 0 && selectedTags.length > 0 && ", "}
                   {selectedTags.length > 0 && `${selectedTags.length} tags`}

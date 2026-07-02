@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#111111"/>
+  <rect x="409" y="253" width="124" height="124" rx="34" fill="#fff"/>
+  <path d="m441 296 30-16.5 30 16.5-30 16.5-30-16.5Z" stroke="#111" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m441 314.5 30 16.5 30-16.5M441 333l30 16.5 30-16.5" stroke="#111" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="566" y="337" fill="#fff" font-family="Helvetica Neue, Helvetica, sans-serif" font-size="64" font-weight="600">UseStack</text>
+</svg>

@@ -16,6 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { isProductVisible } from "@/lib/products.mjs";
 
 export default function ProductHuntStylePage() {
   const params = useParams();
@@ -25,6 +26,8 @@ export default function ProductHuntStylePage() {
 
   useEffect(() => {
     if (params?.slug) fetchProduct();
+    // The route slug is the only value that should trigger a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.slug]);
 
   const fetchProduct = async () => {
@@ -48,6 +51,11 @@ export default function ProductHuntStylePage() {
 
       if (error) {
         setError(error.message);
+        return;
+      }
+
+      if (!isProductVisible(data)) {
+        setError("Product not found");
         return;
       }
 

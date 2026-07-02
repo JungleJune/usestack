@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
-
-function authenticate(request) {
-  const auth = request.headers.get("authorization") || "";
-  return auth.replace("Bearer ", "").trim() === process.env.AGENT_API_KEY;
-}
+import {
+  boundedString,
+  parsePublicHttpUrl,
+} from "@/lib/security.mjs";
+import { authenticateAgentRequest } from "@/lib/server/agent";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 
 export async function POST(request) {
-  if (!authenticate(request)) {
+  if (!authenticateAgentRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -33,15 +26,16 @@ export async function POST(request) {
     );
   }
 
-  const supabase = getAdminClient();
+  const supabase = getSupabaseAdmin();
 
   // ── TYPE: tool_ad ──────────────────────────────────────────────────────
   // Sponsors an existing tool (shows it as a featured/sponsored listing)
   // Body: { type: "tool_ad", tool_slug: "cursor" }
   //    or { type: "tool_ad", tool_name: "Cursor" }
   if (type === "tool_ad") {
-    const { tool_slug, tool_name } = body;
-    if (!tool_slug && !tool_name) {
+    const toolSlug = boundedString(body.tool_slug, 180);
+    const toolName = boundedString(body.tool_name, 160);
+    if (!toolSlug && !toolName) {
       return NextResponse.json(
         { error: "tool_slug or tool_name is required for type: tool_ad" },
         { status: 400 }
@@ -50,13 +44,13 @@ export async function POST(request) {
 
     // Look up the product
     let query = supabase.from("products").select("id, name, slug");
-    if (tool_slug) query = query.eq("slug", tool_slug);
-    else query = query.ilike("name", tool_name);
+    if (toolSlug) query = query.eq("slug", toolSlug);
+    else query = query.ilike("name", toolName);
 
     const { data: product, error: lookupErr } = await query.single();
     if (lookupErr || !product) {
       return NextResponse.json(
-        { error: `Tool not found: ${tool_slug || tool_name}` },
+        { error: `Tool not found: ${toolSlug || toolName}` },
         { status: 404 }
       );
     }
@@ -69,7 +63,7 @@ export async function POST(request) {
 
     if (error) {
       console.error("Agent sponsored tool_ad error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Unable to create sponsored listing" }, { status: 500 });
     }
 
     return NextResponse.json(
@@ -82,11 +76,20 @@ export async function POST(request) {
   // Creates a banner/company sponsored listing
   // Body: { type: "company_ad", company_name, thumbnail_url, company_url, description }
   if (type === "company_ad") {
-    const { company_name, thumbnail_url, company_url, description } = body;
-
-    if (!company_name || !thumbnail_url) {
+    let companyName;
+    let thumbnailUrl;
+    let companyUrl;
+    let description;
+    try {
+      companyName = boundedString(body.company_name, 160, { required: true });
+      thumbnailUrl = parsePublicHttpUrl(body.thumbnail_url).toString();
+      companyUrl = body.company_url
+        ? parsePublicHttpUrl(body.company_url).toString()
+        : null;
+      description = boundedString(body.description, 1000);
+    } catch (error) {
       return NextResponse.json(
-        { error: "company_name and thumbnail_url are required for type: company_ad" },
+        { error: error.message },
         { status: 400 }
       );
     }
@@ -94,9 +97,9 @@ export async function POST(request) {
     const { data, error } = await supabase
       .from("company_ads")
       .insert({
-        company_name,
-        thumbnail_url,
-        company_url: company_url || null,
+        company_name: companyName,
+        thumbnail_url: thumbnailUrl,
+        company_url: companyUrl,
         description: description || null,
         visibility: body.visibility ?? true,
       })
@@ -105,7 +108,7 @@ export async function POST(request) {
 
     if (error) {
       console.error("Agent sponsored company_ad error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Unable to create sponsored listing" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, ad: data }, { status: 201 });

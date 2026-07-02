@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { parseToolData } from "@/lib/aiParser";
 import { GoogleGenAI } from "@google/genai";
 import { captureScreenshot } from "@/lib/screenshotter";
+import {
+  assertPublicHttpUrl,
+  boundedString,
+  fetchPublicResource,
+  parsePublicHttpUrl,
+} from "@/lib/security.mjs";
+import { authenticateAgentRequest } from "@/lib/server/agent";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+export const runtime = "nodejs";
 
 function generateSlug(name) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
-}
-
-function authenticate(request) {
-  const auth = request.headers.get("authorization") || "";
-  return auth.replace("Bearer ", "").trim() === process.env.AGENT_API_KEY;
 }
 
 // Use Gemini Vision to extract tool info from a screenshot/image
@@ -40,14 +37,29 @@ Rules:
 
   let imagePart;
   if (imageBase64) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+      throw new Error("Unsupported image type");
+    }
+    if (imageBase64.length > 8_000_000) {
+      throw new Error("Image exceeds the 6 MB limit");
+    }
     imagePart = { inlineData: { mimeType, data: imageBase64 } };
   } else if (imageUrl) {
-    // Fetch the image and convert to base64
-    const res = await fetch(imageUrl);
-    const buf = await res.arrayBuffer();
-    const b64 = Buffer.from(buf).toString("base64");
-    const ct = res.headers.get("content-type") || "image/jpeg";
-    imagePart = { inlineData: { mimeType: ct, data: b64 } };
+    const resource = await fetchPublicResource(imageUrl, {
+      timeoutMs: 10_000,
+      maxBytes: 6_000_000,
+      headers: { "User-Agent": "UseStackBot/1.0" },
+    });
+    const contentType = resource.contentType.split(";")[0].trim();
+    if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+      throw new Error("Remote URL did not return a supported image");
+    }
+    imagePart = {
+      inlineData: {
+        mimeType: contentType,
+        data: resource.buffer.toString("base64"),
+      },
+    };
   }
 
   const response = await ai.models.generateContent({
@@ -59,8 +71,57 @@ Rules:
   return JSON.parse(raw);
 }
 
+function normalizeOptionalUrl(value) {
+  return value ? parsePublicHttpUrl(value).toString() : null;
+}
+
+function normalizeIds(values, maximumId) {
+  if (!Array.isArray(values)) return [];
+  return [
+    ...new Set(
+      values
+        .map((value) => Number(typeof value === "object" ? value.id : value))
+        .filter(
+          (value) =>
+            Number.isInteger(value) && value > 0 && value <= maximumId
+        )
+    ),
+  ];
+}
+
+function normalizeProductInput(parsed) {
+  const name = boundedString(parsed.name, 160, { required: true });
+  const websiteUrl = parsePublicHttpUrl(parsed.website_url).toString();
+
+  return {
+    ...parsed,
+    name,
+    tagline: boundedString(parsed.tagline, 300),
+    description: boundedString(parsed.description, 5000),
+    website_url: websiteUrl,
+    logo_url: normalizeOptionalUrl(parsed.logo_url),
+    tool_thumbnail_url: normalizeOptionalUrl(parsed.tool_thumbnail_url),
+    twitter_url: normalizeOptionalUrl(parsed.twitter_url),
+    linkedin_url: normalizeOptionalUrl(parsed.linkedin_url),
+    company_name: boundedString(parsed.company_name, 160),
+    company_website: normalizeOptionalUrl(parsed.company_website),
+    company_logo: normalizeOptionalUrl(parsed.company_logo),
+    categories: normalizeIds(parsed.categories, 12),
+    subcategories: normalizeIds(parsed.subcategories, 39),
+    tags: Array.isArray(parsed.tags)
+      ? parsed.tags
+          .slice(0, 30)
+          .map((tag) =>
+            boundedString(typeof tag === "string" ? tag : tag?.type, 40)
+          )
+          .filter(Boolean)
+      : [],
+  };
+}
+
 // Insert product + category/subcategory junctions from parsed data
 async function insertProduct(supabase, parsed) {
+  parsed = normalizeProductInput(parsed);
   const slug = generateSlug(parsed.name);
 
   // Resolve or create company
@@ -91,10 +152,6 @@ async function insertProduct(supabase, parsed) {
     }
   }
 
-  const tagNames = Array.isArray(parsed.tags)
-    ? parsed.tags.map((t) => (typeof t === "string" ? t : t.type)).filter(Boolean)
-    : [];
-
   const { data: product, error } = await supabase
     .from("products")
     .insert({
@@ -109,7 +166,7 @@ async function insertProduct(supabase, parsed) {
       is_verified: !!parsed.is_verified,
       twitter_url: parsed.twitter_url || null,
       linkedin_url: parsed.linkedin_url || null,
-      tags: tagNames.length > 0 ? tagNames : null,
+      tags: parsed.tags.length > 0 ? parsed.tags : null,
     })
     .select()
     .single();
@@ -118,20 +175,20 @@ async function insertProduct(supabase, parsed) {
 
   // Category junctions
   if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
-    const catInserts = parsed.categories.map((c, i) => ({
+    const catInserts = parsed.categories.map((categoryId, index) => ({
       product_id: product.id,
-      category_id: typeof c === "object" ? c.id : i + 1,
-      sort_order: i,
+      category_id: categoryId,
+      sort_order: index,
     }));
     await supabase.from("product_category_jnc").insert(catInserts);
   }
 
   // Subcategory junctions
   if (Array.isArray(parsed.subcategories) && parsed.subcategories.length > 0) {
-    const subInserts = parsed.subcategories.map((s, i) => ({
+    const subInserts = parsed.subcategories.map((subcategoryId, index) => ({
       product_id: product.id,
-      subcategory_id: typeof s === "object" ? s.id : i + 1,
-      sort_order: i,
+      subcategory_id: subcategoryId,
+      sort_order: index,
     }));
     await supabase.from("product_subcategory_jnc").insert(subInserts);
   }
@@ -140,7 +197,7 @@ async function insertProduct(supabase, parsed) {
 }
 
 export async function POST(request) {
-  if (!authenticate(request)) {
+  if (!authenticateAgentRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -151,7 +208,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const supabase = getAdminClient();
+  const supabase = getSupabaseAdmin();
   const mode = body.mode || "manual";
 
   try {
@@ -163,11 +220,12 @@ export async function POST(request) {
       if (!body.url) {
         return NextResponse.json({ error: "url is required for mode: screenshot" }, { status: 400 });
       }
-      const { base64, mimeType } = await captureScreenshot(body.url);
+      const publicUrl = await assertPublicHttpUrl(body.url);
+      const { base64, mimeType } = await captureScreenshot(publicUrl.toString());
       const parsed = await parseToolFromImage(null, base64, mimeType);
       // Fill in the website_url from the provided URL if Vision didn't catch it
-      if (!parsed.website_url) parsed.website_url = body.url;
-      const merged = { ...parsed, ...body.overrides };
+      if (!parsed.website_url) parsed.website_url = publicUrl.toString();
+      const merged = { ...parsed, ...(body.overrides || {}) };
       const product = await insertProduct(supabase, merged);
       return NextResponse.json({ success: true, tool: product, parsed: merged }, { status: 201 });
     }
@@ -179,7 +237,8 @@ export async function POST(request) {
       if (!body.url) {
         return NextResponse.json({ error: "url is required for mode: url" }, { status: 400 });
       }
-      const parsed = await parseToolData(body.url);
+      const publicUrl = await assertPublicHttpUrl(body.url);
+      const parsed = await parseToolData(publicUrl.toString());
       const product = await insertProduct(supabase, parsed);
       return NextResponse.json({ success: true, tool: product, parsed }, { status: 201 });
     }
@@ -201,7 +260,7 @@ export async function POST(request) {
         body.mime_type || "image/jpeg"
       );
       // Allow caller to override any extracted fields
-      const merged = { ...parsed, ...body.overrides };
+      const merged = { ...parsed, ...(body.overrides || {}) };
       const product = await insertProduct(supabase, merged);
       return NextResponse.json({ success: true, tool: product, parsed: merged }, { status: 201 });
     }
@@ -231,6 +290,13 @@ export async function POST(request) {
 
   } catch (err) {
     console.error("Agent tool create error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const isValidationError =
+      /required|invalid|unsupported|limit|URL|image|characters/i.test(
+        err?.message || ""
+      );
+    return NextResponse.json(
+      { error: isValidationError ? err.message : "Unable to create tool" },
+      { status: isValidationError ? 400 : 500 }
+    );
   }
 }

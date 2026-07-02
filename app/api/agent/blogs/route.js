@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import {
+  boundedString,
+  parsePublicHttpUrl,
+} from "@/lib/security.mjs";
+import {
+  authenticateAgentRequest,
+  getAgentUserId,
+} from "@/lib/server/agent";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 
 function generateSlug(title) {
   return title
@@ -16,14 +17,8 @@ function generateSlug(title) {
     .replace(/(^-|-$)+/g, "");
 }
 
-function authenticate(request) {
-  const auth = request.headers.get("authorization") || "";
-  const token = auth.replace("Bearer ", "").trim();
-  return token === process.env.AGENT_API_KEY;
-}
-
 export async function POST(request) {
-  if (!authenticate(request)) {
+  if (!authenticateAgentRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -34,13 +29,28 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { title, summary, content, category, slug, status, tags, thumbnail_url, meta_description } = body;
+  let title;
+  let summary;
+  let content;
+  let category;
+  let slug;
+  let status;
+  let thumbnailUrl;
+  let metaDescription;
 
-  if (!title || !summary || !content || !category) {
-    return NextResponse.json(
-      { error: "Missing required fields: title, summary, content, category" },
-      { status: 400 }
-    );
+  try {
+    title = boundedString(body.title, 160, { required: true });
+    summary = boundedString(body.summary, 500, { required: true });
+    content = boundedString(body.content, 100_000, { required: true });
+    category = boundedString(body.category, 30, { required: true });
+    slug = boundedString(body.slug, 180);
+    status = boundedString(body.status, 20) || "pending";
+    metaDescription = boundedString(body.meta_description, 320);
+    thumbnailUrl = body.thumbnail_url
+      ? parsePublicHttpUrl(body.thumbnail_url).toString()
+      : null;
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   const VALID_CATEGORIES = ["Tool", "Stack", "News"];
@@ -51,22 +61,24 @@ export async function POST(request) {
     );
   }
 
-  const supabase = getAdminClient();
-
-  // Look up the agent user's ID so posts are attributed correctly
-  let created_by = null;
-  if (process.env.AGENT_EMAIL) {
-    const { data: agentUser } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", process.env.AGENT_EMAIL)
-      .single();
-    if (agentUser) created_by = agentUser.id;
+  const validStatuses = ["pending", "published"];
+  if (!validStatuses.includes(status)) {
+    return NextResponse.json(
+      { error: `status must be one of: ${validStatuses.join(", ")}` },
+      { status: 400 }
+    );
   }
 
-  const finalSlug = slug || generateSlug(title);
+  const tags = Array.isArray(body.tags)
+    ? body.tags
+        .slice(0, 20)
+        .map((tag) => boundedString(tag, 40))
+        .filter(Boolean)
+    : [];
+  const createdBy = await getAgentUserId();
+  const finalSlug = generateSlug(slug || title);
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseAdmin()
     .from("blogs")
     .insert({
       title,
@@ -75,17 +87,17 @@ export async function POST(request) {
       content,
       category,
       status: status || "pending",
-      tags: Array.isArray(tags) ? tags : [],
-      thumbnail_url: thumbnail_url || null,
-      meta_description: meta_description || null,
-      created_by,
+      tags,
+      thumbnail_url: thumbnailUrl,
+      meta_description: metaDescription || null,
+      created_by: createdBy,
     })
     .select()
     .single();
 
   if (error) {
     console.error("Agent blog create error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Unable to create blog post" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, blog: data }, { status: 201 });

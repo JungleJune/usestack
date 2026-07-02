@@ -31,6 +31,7 @@ import {
   Zap
 } from "lucide-react";
 import { notFound } from "next/navigation";
+import { isProductVisible } from "@/lib/products.mjs";
 
 // Trending products are fetched dynamically by IDs
 
@@ -122,6 +123,8 @@ export default function ToolDetailPage() {
     if (params?.slug) {
       fetchProduct();
     }
+    // The route slug is the only value that should trigger a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.slug]);
 
   useEffect(() => {
@@ -174,7 +177,9 @@ export default function ToolDetailPage() {
         // Sort products to match the order from ads table and filter out current product
         const sortedProducts = toolIds
           .map((id) => productsData.find((p) => p.id === id))
-          .filter((p) => p && p.slug !== params?.slug);
+          .filter(
+            (p) => p && p.slug !== params?.slug && isProductVisible(p)
+          );
 
         setSponsoredProducts(sortedProducts.slice(0, 2));
       } catch (err) {
@@ -253,9 +258,11 @@ export default function ToolDetailPage() {
         }
 
         // Sort the results by match count to maintain the ranking
-        const sortedProducts = products.sort((a, b) => {
-          return productMatchCount[b.id] - productMatchCount[a.id];
-        });
+        const sortedProducts = products
+          .filter(isProductVisible)
+          .sort((a, b) => {
+            return productMatchCount[b.id] - productMatchCount[a.id];
+          });
 
         setRelatedProducts(sortedProducts);
       } catch (err) {
@@ -322,6 +329,11 @@ export default function ToolDetailPage() {
       if (error) {
         console.error("Error fetching product:", error);
         setError(error.message);
+        return;
+      }
+
+      if (!isProductVisible(data)) {
+        setError("Product not found");
         return;
       }
 

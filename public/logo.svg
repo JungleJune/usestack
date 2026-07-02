@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 40" fill="none">
+  <rect x="4" y="4" width="32" height="32" rx="9" fill="#111111"/>
+  <path d="M12.25 15.25 20 11l7.75 4.25L20 19.5l-7.75-4.25Z" stroke="#fff" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="m12.25 20 7.75 4.25L27.75 20M12.25 24.75 20 29l7.75-4.25" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="47" y="27" fill="#111111" font-family="Helvetica Neue, Helvetica, sans-serif" font-size="20" font-weight="600">UseStack</text>
+</svg>

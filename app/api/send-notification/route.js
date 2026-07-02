@@ -1,84 +1,68 @@
-import { NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { NextResponse } from "next/server";
+import {
+  boundedString,
+  escapeHtml,
+  isValidEmail,
+  normalizeEmail,
+} from "@/lib/security.mjs";
+import { getMailer, getMailDefaults } from "@/lib/server/mailer";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/server/rate-limit";
+
+export const runtime = "nodejs";
 
 export async function POST(request) {
+  const rateLimit = checkRateLimit(request, {
+    namespace: "tool-notification",
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
   try {
-    const body = await request.json()
-    const { toolName, providerName, contactEmail, description } = body
+    const body = await request.json();
+    const toolName = boundedString(body.toolName, 120, { required: true });
+    const providerName = boundedString(body.providerName, 120);
+    const contactEmail = normalizeEmail(body.contactEmail);
+    const description = boundedString(body.description, 3000, {
+      required: true,
+    });
 
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: 'obase.harsh@gmail.com',
-        pass: 'jits ucfz gzaz enyh'
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-      secure: true,
-      port: 465
-    })
-
-    // Email content
-    const mailOptions = {
-      from: 'obase.harsh@gmail.com',
-      to: 'obase.vaibhav@gmail.com',
-      subject: `New AI Tool Submission: ${toolName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">🚀 New AI Tool Submission</h2>
-
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #1e293b; margin-top: 0;">Tool Details</h3>
-
-            <div style="margin-bottom: 15px;">
-              <strong style="color: #475569;">Tool Name:</strong>
-              <span style="color: #1e293b; margin-left: 10px;">${toolName}</span>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-              <strong style="color: #475569;">Provider/Company:</strong>
-              <span style="color: #1e293b; margin-left: 10px;">${providerName}</span>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-              <strong style="color: #475569;">Contact Email:</strong>
-              <span style="color: #1e293b; margin-left: 10px;">${contactEmail}</span>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-              <strong style="color: #475569;">Description:</strong>
-              <p style="color: #1e293b; margin: 10px 0 0 0; line-height: 1.5;">${description}</p>
-            </div>
-          </div>
-
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 14px; margin: 0;">
-              This is an automated notification from the UseStack.ai Tool submission system.
-            </p>
-          </div>
-        </div>
-      `
+    if (!isValidEmail(contactEmail)) {
+      return NextResponse.json(
+        { error: "A valid contact email is required" },
+        { status: 400 }
+      );
     }
 
-    // Send email
-    const info = await transporter.sendMail(mailOptions)
+    const defaults = getMailDefaults();
+    const info = await getMailer().sendMail({
+      from: defaults.from,
+      to: defaults.notificationTo,
+      replyTo: contactEmail,
+      subject: `New AI tool submission: ${toolName.replace(/[\r\n]/g, " ")}`,
+      html: `
+        <main style="font-family: sans-serif; max-width: 640px; margin: 0 auto;">
+          <h1>New AI tool submission</h1>
+          <p><strong>Tool:</strong> ${escapeHtml(toolName)}</p>
+          <p><strong>Provider:</strong> ${escapeHtml(providerName || "Not provided")}</p>
+          <p><strong>Contact:</strong> ${escapeHtml(contactEmail)}</p>
+          <p><strong>Description:</strong></p>
+          <p style="white-space: pre-wrap;">${escapeHtml(description)}</p>
+        </main>
+      `,
+    });
 
     return NextResponse.json({
       success: true,
       messageId: info.messageId,
-      message: 'Notification email sent successfully'
-    })
-
-  } catch (error) {
+    });
+  } catch {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to send notification email',
-        details: error.message
-      },
+      { success: false, error: "Failed to send notification email" },
       { status: 500 }
-    )
+    );
   }
 }

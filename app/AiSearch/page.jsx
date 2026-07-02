@@ -15,6 +15,13 @@ const AiSearchPage = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("search") || "";
+  const displayQuery = (() => {
+    try {
+      return decodeURIComponent(query);
+    } catch {
+      return query;
+    }
+  })();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
@@ -180,7 +187,7 @@ const AiSearchPage = () => {
 
               {/* Query Display */}
               <div className="mt-10 text-sm text-gray-400">
-                Searching for: "{decodeURIComponent(query)}"
+                Searching for: "{displayQuery}"
               </div>
             </div>
           )}

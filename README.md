@@ -1,30 +1,59 @@
-# UseStack.ai
+# UseStack
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+UseStack is a curated directory for discovering AI-native products, following product updates, and learning which tools builders combine into practical workflows.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://usestack.ai)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/LCQqkyCIwb5)
+Production: [usestack.ai](https://usestack.ai)
 
-## Overview
+## Local Development
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+Requirements:
 
-## Deployment
+- Node.js 22
+- npm 10
+- A Supabase project
 
-Your project is live at:
+```bash
+cp .env.example .env.local
+npm ci --legacy-peer-deps
+npm run dev
+```
 
-**[https://usestack.ai](https://usestack.ai)**
+Open [http://localhost:3000](http://localhost:3000).
 
-## Build your app
+## Quality Checks
 
-Continue building your app on:
+```bash
+npm run check
+npm run security:deps
+npm run build
+```
 
-**[https://v0.dev/chat/projects/LCQqkyCIwb5](https://v0.dev/chat/projects/LCQqkyCIwb5)**
+`npm run check` runs linting, TypeScript validation, unit tests, and a source secret scan. Pull requests run the same checks in GitHub Actions.
 
-## How It Works
+## Documentation
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+- [Requirements](docs/REQUIREMENTS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [SDLC](docs/SDLC.md)
+- [Testing](docs/TESTING.md)
+- [Deployment and maintenance](docs/DEPLOYMENT.md)
+- [Supabase security](docs/SUPABASE_SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+
+## Core Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local development server |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | Validate TypeScript |
+| `npm test` | Run unit tests |
+| `npm run security:secrets` | Scan source files for likely secrets |
+| `npm run security:deps` | Fail on high or critical production advisories |
+| `npm run build` | Create the production build |
+| `npm run ci` | Run the full local CI sequence |
+
+## Environments
+
+Use `.env.local` for local secrets and Vercel Environment Variables for Preview and Production. Never commit credentials. `.env.example` is the authoritative variable inventory.

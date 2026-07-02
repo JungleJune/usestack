@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import ProductCardMedia from "@/components/product-card-media";
+import {
+  filterProducts,
+  getProductCategoryName,
+  getProductTagNames,
+} from "@/lib/products.mjs";
 
 export default function FeaturedProducts({
   showRating = true,
@@ -19,6 +24,15 @@ export default function FeaturedProducts({
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const filteredProducts = useMemo(
+    () =>
+      filterProducts(products, {
+        searchQuery,
+        selectedCategories,
+        selectedTags,
+      }),
+    [products, searchQuery, selectedCategories, selectedTags]
+  );
 
   useEffect(() => {
     fetchAllProducts();
@@ -26,90 +40,11 @@ export default function FeaturedProducts({
 
   // Notify parent component of filtered count changes
   useEffect(() => {
-    if (onFilteredCountChange && products.length > 0) {
-      const filteredProducts = products.filter((product) => {
-        // Filter by search query if provided
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase().trim();
-          const productName = product.name?.toLowerCase() || "";
-          const productDescription = product.description?.toLowerCase() || "";
-          const productTagline = product.tagline?.toLowerCase() || "";
-          const productCategory = product.category?.name?.toLowerCase() || "";
-          const productCategoryList = (product.product_categories || [])
-            .map((pc) => pc.category?.name?.toLowerCase())
-            .filter(Boolean);
-          const productTags =
-            product.tags?.map((tag) => tag.toLowerCase()) || [];
-
-          const hasMatch =
-            productName.includes(query) ||
-            productDescription.includes(query) ||
-            productTagline.includes(query) ||
-            productCategory.includes(query) ||
-            productCategoryList.some((c) => c.includes(query)) ||
-            productTags.some((tag) => tag.includes(query));
-
-          if (!hasMatch) {
-            return false;
-          }
-        }
-
-        // Filter by categories if any are selected
-        if (selectedCategories.length > 0) {
-          const candidateValues = [
-            product.category?.name,
-            product.category?.slug,
-            ...(product.product_categories || []).flatMap((pc) => [
-              pc.category?.name,
-              pc.category?.slug,
-            ]),
-          ]
-            .filter(Boolean)
-            .map((v) => String(v).toLowerCase());
-
-          const selectedLower = selectedCategories.map((v) =>
-            String(v).toLowerCase()
-          );
-          const matchesAny = candidateValues.some((v) =>
-            selectedLower.includes(v)
-          );
-          if (!matchesAny) return false;
-        }
-
-        // Filter by tags if any are selected
-        if (selectedTags.length > 0) {
-          const productTagNames = [
-            ...(Array.isArray(product.tags) ? product.tags : []),
-            ...(product.product_tags || [])
-              .map((pt) => pt?.tag?.name)
-              .filter(Boolean),
-          ].map((t) => String(t).toLowerCase());
-
-          if (productTagNames.length === 0) {
-            return false;
-          }
-
-          const selectedLower = selectedTags.map((t) =>
-            String(t).toLowerCase()
-          );
-          const hasMatchingTag = selectedLower.some((tag) =>
-            productTagNames.includes(tag)
-          );
-          if (!hasMatchingTag) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
+    if (onFilteredCountChange) {
       onFilteredCountChange(filteredProducts.length);
     }
   }, [
-    products,
-    selectedCategories,
-    selectedTags,
-    searchQuery,
+    filteredProducts.length,
     onFilteredCountChange,
   ]);
 
@@ -166,17 +101,21 @@ export default function FeaturedProducts({
       <div
         className={`grid sm:grid-cols-2 ${
           gridCols === 4 ? "md:grid-cols-4" : gridCols === 2 ? "md:grid-cols-2" : "md:grid-cols-3"
-        } gap-6`}
+        } gap-4`}
       >
         {[...Array(gridCols === 4 ? 8 : 12)].map((_, i) => (
-          <Card key={i} className="animate-pulse aspect-square rounded-2xl">
-            <div className="h-40 bg-gray-200 rounded-t-2xl"></div>
-            <CardContent className="p-4">
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded mb-2 w-3/4"></div>
-              <div className="h-5 bg-gray-200 rounded w-1/2"></div>
-            </CardContent>
-          </Card>
+          <div
+            key={i}
+            className="animate-pulse overflow-hidden rounded-[8px] border border-[#e1e1dd] bg-white"
+          >
+            <div className="aspect-[16/10] bg-[#ededeb]" />
+            <div className="space-y-3 p-5">
+              <div className="h-3 w-20 rounded bg-[#e3e3df]" />
+              <div className="h-5 w-2/3 rounded bg-[#dededa]" />
+              <div className="h-3 w-full rounded bg-[#e8e8e5]" />
+              <div className="h-3 w-4/5 rounded bg-[#e8e8e5]" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -222,78 +161,6 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key_here`}
       </div>
     );
   }
-
-  // Filter products based on selected categories, tags, and search query
-  const filteredProducts = products.filter((product) => {
-    // Filter by search query if provided
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      const productName = product.name?.toLowerCase() || "";
-      const productDescription = product.description?.toLowerCase() || "";
-      const productTagline = product.tagline?.toLowerCase() || "";
-      const productCategory = product.category?.name?.toLowerCase() || "";
-      const productCategoryList = (product.product_categories || [])
-        .map((pc) => pc.category?.name?.toLowerCase())
-        .filter(Boolean);
-      const productTags = product.tags?.map((tag) => tag.toLowerCase()) || [];
-
-      const hasMatch =
-        productName.includes(query) ||
-        productDescription.includes(query) ||
-        productTagline.includes(query) ||
-        productCategory.includes(query) ||
-        productCategoryList.some((c) => c.includes(query)) ||
-        productTags.some((tag) => tag.includes(query));
-
-      if (!hasMatch) {
-        return false;
-      }
-    }
-
-    // Filter by categories if any are selected
-    if (selectedCategories.length > 0) {
-      const candidateValues = [
-        product.category?.name,
-        product.category?.slug,
-        ...(product.product_categories || []).flatMap((pc) => [
-          pc.category?.name,
-          pc.category?.slug,
-        ]),
-      ]
-        .filter(Boolean)
-        .map((v) => String(v).toLowerCase());
-
-      const selectedLower = selectedCategories.map((v) =>
-        String(v).toLowerCase()
-      );
-      const matchesAny = candidateValues.some((v) => selectedLower.includes(v));
-      if (!matchesAny) return false;
-    }
-
-    // Filter by tags if any are selected
-    if (selectedTags.length > 0) {
-      const productTagNames = [
-        ...(Array.isArray(product.tags) ? product.tags : []),
-        ...(product.product_tags || [])
-          .map((pt) => pt?.tag?.name)
-          .filter(Boolean),
-      ].map((t) => String(t).toLowerCase());
-
-      if (productTagNames.length === 0) {
-        return false;
-      }
-
-      const selectedLower = selectedTags.map((t) => String(t).toLowerCase());
-      const hasMatchingTag = selectedLower.some((tag) =>
-        productTagNames.includes(tag)
-      );
-      if (!hasMatchingTag) {
-        return false;
-      }
-    }
-
-    return true;
-  });
 
   // Calculate Levenshtein distance for fuzzy matching
   const levenshteinDistance = (str1, str2) => {
@@ -507,94 +374,49 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key_here`}
       <div
         className={`grid sm:grid-cols-2 ${
           gridCols === 4 ? "md:grid-cols-4" : gridCols === 2 ? "md:grid-cols-2" : "md:grid-cols-3"
-        } gap-6`}
+        } gap-4`}
       >
         {displayProducts.map((product) => (
           <Link
             key={product.id}
             href={`/tool/${product.slug}`}
-            className="block"
+            className="group flex min-w-0 flex-col overflow-hidden rounded-[8px] border border-[#deded9] bg-white transition duration-300 hover:-translate-y-1 hover:border-[#9d9d96] hover:shadow-[0_18px_50px_rgba(0,0,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2"
           >
-            <Card
-              className="bg-white border border-gray-200 hover:shadow-lg hover:border-blue-200 transition-all duration-300 overflow-hidden flex flex-col rounded-2xl cursor-pointer h-full"
-            >
-              {/* Tool Screenshot/Thumbnail - Full width */}
-              <div className="h-28 flex-shrink-0 bg-gray-100 relative overflow-hidden">
-                {product.tool_thumbnail_url ? (
-                  <img
-                    src={product.tool_thumbnail_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : product.banner_url ? (
-                  <img
-                    src={product.banner_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                      <span className="text-white text-xl font-bold">
-                        {product.name?.charAt(0)?.toUpperCase() || "?"}
-                      </span>
-                    </div>
-                  </div>
-                )}
+            <ProductCardMedia
+              product={product}
+              className="aspect-[16/10] w-full"
+            />
+
+            <div className="flex min-h-[180px] flex-1 flex-col p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-medium text-[#777772]">
+                    {getProductCategoryName(product)}
+                  </p>
+                  <h3 className="mt-1 truncate text-[18px] font-semibold text-[#141414]">
+                    {product.name}
+                  </h3>
+                </div>
+                <ArrowUpRight className="mt-1 h-5 w-5 shrink-0 text-[#9c9c96] transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#141414]" />
               </div>
 
-              <CardContent className="p-3 flex flex-col flex-1">
-                {/* Product Name */}
-                <h3 className="font-semibold text-sm text-gray-900 mb-1 line-clamp-1">
-                  {product.name}
-                </h3>
+              <p className="mt-3 line-clamp-2 text-[14px] leading-6 text-[#666661]">
+                {product.tagline || product.description || "AI-powered tool"}
+              </p>
 
-                {/* Description */}
-                <p className="text-gray-500 text-xs mb-2 line-clamp-2">
-                  {product.tagline || product.description || "AI-powered tool"}
-                </p>
-
-                {/* Category Badge */}
-                <div className="mb-1.5 mt-auto">
-                  {(() => {
-                    const categoryName = product?.category?.name || 
-                      (product?.product_categories || [])[0]?.category?.name;
-                    return categoryName ? (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 border-0 rounded-full font-medium"
-                      >
-                        {categoryName}
-                      </Badge>
-                    ) : null;
-                  })()}
-                </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {(() => {
-                    const tagNames = [
-                      ...(product?.tags || []),
-                      ...(product?.product_tags || [])
-                        .map((pt) => pt?.tag?.name)
-                        .filter(Boolean),
-                    ]
-                      .filter(Boolean)
-                      .slice(0, 2);
-
-                    return tagNames.map((tag, index) => (
-                      <Badge
-                        key={`${tag}-${index}`}
-                        variant="outline"
-                        className="text-xs px-2 py-1 bg-gray-50 text-gray-600 border-gray-200 rounded-full"
-                      >
-                        {tag}
-                      </Badge>
-                    ));
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
+              <div className="mt-auto flex flex-wrap gap-2 pt-5">
+                {getProductTagNames(product)
+                  .slice(0, 2)
+                  .map((tag, index) => (
+                    <span
+                      key={`${tag}-${index}`}
+                      className="max-w-[130px] truncate rounded-full bg-[#f1f1ee] px-2.5 py-1 text-[11px] font-medium text-[#5d5d58]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+              </div>
+            </div>
           </Link>
         ))}
       </div>

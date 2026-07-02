@@ -22,7 +22,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ViewSubmissionPage({ params }) {
@@ -35,6 +35,8 @@ export default function ViewSubmissionPage({ params }) {
 
   useEffect(() => {
     fetchSubmission();
+    // The route ID is the only value that should trigger a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchSubmission = async () => {

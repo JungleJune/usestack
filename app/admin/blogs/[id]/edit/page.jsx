@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Eye, Save, Upload, X, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/admin-supabase";
 import { toast } from "@/hooks/use-toast";
 import RichTextEditor from "@/components/rich-text-editor";
 
@@ -34,6 +34,8 @@ export default function EditBlogPage() {
   useEffect(() => {
     fetchTags();
     fetchBlog();
+    // The route ID is the only value that should trigger a reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function fetchTags() {

@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
-
-function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import { boundedString } from "@/lib/security.mjs";
+import {
+  authenticateAgentRequest,
+  getAgentUserId,
+} from "@/lib/server/agent";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 
 function generateSlug(name) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
-}
-
-function authenticate(request) {
-  const auth = request.headers.get("authorization") || "";
-  return auth.replace("Bearer ", "").trim() === process.env.AGENT_API_KEY;
 }
 
 // Use Gemini to suggest tools for a stack based on a text description
@@ -54,7 +47,7 @@ Rules:
 }
 
 export async function POST(request) {
-  if (!authenticate(request)) {
+  if (!authenticateAgentRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -65,19 +58,20 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const supabase = getAdminClient();
+  const supabase = getSupabaseAdmin();
   const mode = body.mode || "manual";
 
   try {
-    let stackName = body.name;
-    let stackDescription = body.description;
-    let toolList = body.tools || []; // [{ slug_or_name, used_for }] or [{ slug, used_for }]
+    let stackName = boundedString(body.name, 160);
+    let stackDescription = boundedString(body.description, 2000);
+    let toolList = Array.isArray(body.tools) ? body.tools.slice(0, 20) : [];
 
     // ── MODE: suggest ────────────────────────────────────────────────────
     // Pass free-text description; Gemini picks tools from the existing DB
     // Body: { mode: "suggest", prompt: "I need a stack for outbound sales automation" }
     if (mode === "suggest") {
-      if (!body.prompt) {
+      const prompt = boundedString(body.prompt, 1000);
+      if (!prompt) {
         return NextResponse.json({ error: "prompt is required for mode: suggest" }, { status: 400 });
       }
 
@@ -87,10 +81,14 @@ export async function POST(request) {
         .select("id, name, slug")
         .order("name");
 
-      const suggestion = await suggestStackFromText(body.prompt, allTools || []);
-      stackName = body.name || suggestion.name;
-      stackDescription = body.description || suggestion.description;
-      toolList = suggestion.tools; // [{ slug, used_for }]
+      const suggestion = await suggestStackFromText(prompt, allTools || []);
+      stackName = stackName || boundedString(suggestion.name, 160, { required: true });
+      stackDescription =
+        stackDescription ||
+        boundedString(suggestion.description, 2000, { required: true });
+      toolList = Array.isArray(suggestion.tools)
+        ? suggestion.tools.slice(0, 20)
+        : [];
     }
 
     // ── MODE: manual / suggest (after AI fills in name/description) ───────
@@ -103,6 +101,7 @@ export async function POST(request) {
     }
 
     // Create the stack
+    const createdBy = await getAgentUserId();
     const { data: stack, error: stackError } = await supabase
       .from("stacks")
       .insert({
@@ -110,7 +109,7 @@ export async function POST(request) {
         slug: generateSlug(stackName),
         description: stackDescription.trim(),
         is_public: body.is_public ?? false,
-        created_by: 1,
+        created_by: createdBy,
       })
       .select()
       .single();
@@ -119,7 +118,11 @@ export async function POST(request) {
 
     // Resolve tools and create junctions
     if (toolList.length > 0) {
-      const slugsOrNames = toolList.map((t) => t.slug || t.slug_or_name || t.name).filter(Boolean);
+      const slugsOrNames = toolList
+        .map((tool) =>
+          boundedString(tool?.slug || tool?.slug_or_name || tool?.name, 180)
+        )
+        .filter(Boolean);
 
       // Fetch matching products by slug first, then by name
       const { data: bySlug } = await supabase
@@ -149,7 +152,7 @@ export async function POST(request) {
             product_id: product.id,
             stack_name: stack.name,
             product_name: product.name,
-            used_for: toolEntry?.used_for || null,
+            used_for: boundedString(toolEntry?.used_for, 500) || null,
           };
         });
 
@@ -162,6 +165,6 @@ export async function POST(request) {
 
   } catch (err) {
     console.error("Agent stack create error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Unable to create stack" }, { status: 500 });
   }
 }
