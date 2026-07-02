@@ -398,7 +398,6 @@ export default function HomePage() {
   }, [activeIntent, searchQuery, tools]);
 
   const featuredTools = filteredTools.slice(0, 6);
-  const launchRail = tools.slice(0, 5);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
