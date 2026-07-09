@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { getSupabasePublicConfig, supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import ProductCardMedia from "@/components/product-card-media";
@@ -54,12 +54,10 @@ export default function FeaturedProducts({
       setError(null);
 
       // Check if Supabase is properly configured
-      if (
-        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
-      ) {
+      const supabaseConfig = getSupabasePublicConfig();
+      if (!supabaseConfig.url || !supabaseConfig.key) {
         throw new Error(
-          "Supabase environment variables are not configured. Please check your .env.local file."
+          "Supabase environment variables are not configured. Please check your Vercel project settings or .env.local file."
         );
       }
 
@@ -137,7 +135,9 @@ export default function FeaturedProducts({
               </p>
               <pre className="text-xs text-yellow-700 mt-2 bg-yellow-100 p-2 rounded">
                 {`NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key_here`}
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_publishable_key_here
+# or, for older Supabase projects:
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here`}
               </pre>
             </div>
           )}
