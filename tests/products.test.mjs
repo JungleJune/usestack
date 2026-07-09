@@ -59,9 +59,9 @@ test("excludes reviewed hidden and removed products from public discovery", () =
   const summary = getCatalogVisibilitySummary();
 
   assert.deepEqual(summary, {
-    hidden: 101,
+    hidden: 287,
     removed: 15,
-    excluded: 116,
+    excluded: 302,
   });
   assert.equal(isProductVisible({ id: 266, name: "ActiveCampaign" }), false);
   assert.equal(isProductVisible({ id: 182, name: "AI Directory" }), false);

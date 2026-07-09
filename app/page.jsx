@@ -92,7 +92,7 @@ const fallbackTools = [
 ];
 
 const fallbackCategories = [
-  { id: "all", name: "All tools", slug: "all", count: 432 },
+  { id: "all", name: "All tools", slug: "all", count: 130 },
   { id: "developer", name: "Developer", slug: "developer-coding-tools", count: 74 },
   { id: "agents", name: "Agents", slug: "automation-agents", count: 66 },
   { id: "video", name: "Video", slug: "video-animation-tools", count: 38 },
@@ -255,7 +255,7 @@ export default function HomePage() {
   const [categories, setCategories] = useState(fallbackCategories);
   const [stacks, setStacks] = useState(fallbackStacks);
   const [updates, setUpdates] = useState(fallbackUpdates);
-  const [liveCount, setLiveCount] = useState(432);
+  const [liveCount, setLiveCount] = useState(130);
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {

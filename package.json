@@ -16,6 +16,7 @@
     "security:secrets": "node scripts/check-secrets.mjs",
     "security:deps": "npm audit --omit=dev --audit-level=high",
     "catalog:visibility": "node scripts/generate-catalog-visibility.mjs",
+    "catalog:reaudit:strict": "node scripts/reaudit-catalog-strict.mjs && node scripts/generate-catalog-visibility.mjs outputs/catalog-audit-2026-07-09/strict-audit.json lib/catalog-visibility.generated.mjs",
     "brand:assets": "node scripts/render-brand-assets.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run security:secrets",
     "ci": "npm run check && npm run build"
