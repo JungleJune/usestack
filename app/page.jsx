@@ -34,6 +34,8 @@ const fallbackTools = [
     name: "Runway",
     slug: "runway",
     tagline: "Generate and edit video for campaigns, demos, and product stories.",
+    website_url: "https://runwayml.com/",
+    logo_url: "https://www.google.com/s2/favicons?domain=runwayml.com&sz=128",
     category: "Video",
     tags: ["creator", "video"],
   },
@@ -42,6 +44,8 @@ const fallbackTools = [
     name: "Perplexity AI",
     slug: "perplexity-ai",
     tagline: "Research assistant for source-backed answers and market scans.",
+    website_url: "https://www.perplexity.ai/",
+    logo_url: "https://www.google.com/s2/favicons?domain=perplexity.ai&sz=128",
     category: "Research",
     tags: ["research", "search"],
   },
@@ -50,6 +54,8 @@ const fallbackTools = [
     name: "Cursor",
     slug: "cursor",
     tagline: "AI-native coding workspace for shipping product changes faster.",
+    website_url: "https://cursor.com/",
+    logo_url: "https://www.google.com/s2/favicons?domain=cursor.com&sz=128",
     category: "Developer tools",
     tags: ["code", "agent"],
   },
@@ -58,6 +64,8 @@ const fallbackTools = [
     name: "Gamma",
     slug: "gamma",
     tagline: "Turn notes into polished decks, pages, and shareable documents.",
+    website_url: "https://gamma.app/",
+    logo_url: "https://www.google.com/s2/favicons?domain=gamma.app&sz=128",
     category: "Presentations",
     tags: ["slides", "writing"],
   },
@@ -66,6 +74,8 @@ const fallbackTools = [
     name: "Granola",
     slug: "granola",
     tagline: "Meeting notes that turn calls into structured follow-ups.",
+    website_url: "https://www.granola.ai/",
+    logo_url: "https://www.google.com/s2/favicons?domain=granola.ai&sz=128",
     category: "Productivity",
     tags: ["meetings", "notes"],
   },
@@ -74,6 +84,8 @@ const fallbackTools = [
     name: "Lovable",
     slug: "lovable",
     tagline: "Build full web products by describing what you want.",
+    website_url: "https://lovable.dev/",
+    logo_url: "https://www.google.com/s2/favicons?domain=lovable.dev&sz=128",
     category: "Developer tools",
     tags: ["code", "apps"],
   },
@@ -262,8 +274,8 @@ export default function HomePage() {
             .from("products")
             .select(
               `
-                id, name, slug, tagline, description, logo_url, tool_thumbnail_url, tags, created_at,
-                company:companies(name, logo_url),
+                id, name, slug, tagline, description, website_url, logo_url, tool_thumbnail_url, tags, created_at,
+                company:companies(name, website_url, logo_url),
                 product_categories:product_category_jnc(
                   category:categories!product_category_jnc_category_id_fkey(id, name, slug)
                 ),
@@ -289,8 +301,8 @@ export default function HomePage() {
                 id, name, description, slug,
                 product_stacks:product_stack_jnc(
                   product:products(
-                    id, name, slug, logo_url, tool_thumbnail_url,
-                    company:companies(name, logo_url)
+                    id, name, slug, website_url, logo_url, tool_thumbnail_url,
+                    company:companies(name, website_url, logo_url)
                   )
                 )
               `

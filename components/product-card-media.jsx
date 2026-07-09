@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   getProductLogo,
+  getProductWebsitePreview,
   productInitial,
   validMediaUrl,
 } from "@/lib/products.mjs";
@@ -53,27 +54,29 @@ export default function ProductCardMedia({
   priority = false,
 }) {
   const thumbnail = validMediaUrl(product?.tool_thumbnail_url);
+  const websitePreview = getProductWebsitePreview(product);
   const logo = getProductLogo(product);
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   useEffect(() => {
-    setThumbnailFailed(false);
-  }, [thumbnail]);
+    setPreviewFailed(false);
+  }, [thumbnail, websitePreview]);
 
-  const showThumbnail = thumbnail && !thumbnailFailed;
+  const preview = thumbnail || websitePreview;
+  const showPreview = preview && !previewFailed;
 
   return (
     <div
       className={`relative isolate overflow-hidden bg-[#ececea] ${className}`}
     >
-      {showThumbnail ? (
+      {showPreview ? (
         <img
-          src={thumbnail}
+          src={preview}
           alt={`${product?.name || "AI tool"} preview`}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           referrerPolicy="no-referrer"
-          onError={() => setThumbnailFailed(true)}
+          onError={() => setPreviewFailed(true)}
           className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.025]"
         />
       ) : logo ? (
@@ -95,7 +98,7 @@ export default function ProductCardMedia({
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/5" />
 
-      {showThumbnail && (
+      {showPreview && (
         <ProductLogo
           product={product}
           className="absolute bottom-3 left-3 h-11 w-11 rounded-[8px] border border-white/80 shadow-[0_4px_16px_rgba(0,0,0,0.14)]"
